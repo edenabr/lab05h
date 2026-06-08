@@ -10,52 +10,44 @@ on:
 
 jobs:
   build:
-    name: build (${{ matrix.os }}, ${{ matrix.cxx }}, ${{ matrix.cc }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            cc: gcc
-            cxx: g++
-          - os: ubuntu-latest
-            cc: clang
-            cxx: clang++
-          - os: macos-latest
-            cc: clang
-            cxx: clang++
+    name: build and test
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Install dependencies on Ubuntu
-        if: runner.os == 'Linux'
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc g++ clang
+          sudo apt-get install -y cmake g++ lcov
 
-      - name: Clean old build directory
+      - name: Configure with coverage
         run: |
-          rm -rf _build
-
-      - name: Configure
-        run: |
-          cmake -S . -B _build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          cmake -H. -B_build \
+            -DBUILD_TESTS=ON \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage" \
+            -DCMAKE_C_FLAGS="--coverage"
 
       - name: Build
         run: |
-          cmake --build _build --config Release
+          cmake --build _build
 
-      - name: Run hello_world
+      - name: Run tests
         run: |
-          ./_build/hello_world_application/hello_world
+          cmake --build _build --target test -- ARGS=--verbose
 
-      - name: Run equation
+      - name: Generate coverage report
         run: |
-          echo "1 2 1" | ./_build/solver_application/equation
+          lcov --directory _build --capture --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/third-party/*' '*/tests/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage.info
