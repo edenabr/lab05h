@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: build and test
+    name: build, test and coverage
     runs-on: ubuntu-latest
 
     steps:
@@ -29,8 +29,8 @@ jobs:
           cmake -H. -B_build \
             -DBUILD_TESTS=ON \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_FLAGS="--coverage" \
-            -DCMAKE_C_FLAGS="--coverage"
+            -DCMAKE_CXX_FLAGS="-O0 -g --coverage" \
+            -DCMAKE_C_FLAGS="-O0 -g --coverage"
 
       - name: Build
         run: |
@@ -42,8 +42,8 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          lcov --directory _build --capture --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/third-party/*' '*/tests/*' --output-file coverage.info
+          lcov --directory _build --capture --output-file coverage.info --ignore-errors mismatch
+          lcov --remove coverage.info '/usr/*' '*/third-party/*' '*/tests/*' --output-file coverage.info --ignore-errors unused
           lcov --list coverage.info
 
       - name: Upload coverage to Coveralls
